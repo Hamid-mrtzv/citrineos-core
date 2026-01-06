@@ -1,24 +1,35 @@
-#  SPDX-FileCopyrightText: 2025 Contributors to the CitrineOS Project
+# SPDX-FileCopyrightText: 2025 Contributors to the CitrineOS Project
 #
-#  SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 
-# Use a specific base image with platform support
-FROM --platform=${BUILDPLATFORM:-linux/amd64} node:22 AS build
+# -------------------------------
+# Build stage (CPU-compatible)
+# -------------------------------
+FROM --platform=${BUILDPLATFORM:-linux/amd64} node:18-bullseye-slim AS build
 
 WORKDIR /usr/local/apps/citrineos
 
+# Copy all source files
 COPY . .
-RUN npm run install-all && npm run build
 
-# The final stage, which copies built files and prepares the run environment
-# Using a slim image to reduce the final image size
-FROM node:22-slim
+# Install dependencies and build
+RUN npm install && npm run build
+
+# -------------------------------
+# Final stage (runtime)
+# -------------------------------
+FROM node:18-bullseye-slim
+
+WORKDIR /usr/local/apps/citrineos
+
+# Copy built files from build stage
 COPY --from=build /usr/local/apps/citrineos /usr/local/apps/citrineos
 
-WORKDIR /usr/local/apps/citrineos
-
+# Make entrypoint executable
 RUN chmod +x /usr/local/apps/citrineos/entrypoint.sh
 
-EXPOSE ${PORT}
+# Expose runtime port (use environment variable PORT if set)
+EXPOSE ${PORT:-8080}
 
+# Set entrypoint
 ENTRYPOINT ["/usr/local/apps/citrineos/entrypoint.sh"]
